@@ -6,3 +6,6 @@ pub_downloads/
 
 # Jupyter's local autosave/checkpoint files
 .ipynb_checkpoints/
+
+# Working planning doc, not part of the shipped repo
+nces_pipeline_plan.md
