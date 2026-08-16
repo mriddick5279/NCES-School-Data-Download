@@ -9,3 +9,14 @@ pub_downloads/
 
 # Working planning doc, not part of the shipped repo
 nces_pipeline_plan.md
+
+# Temporary files created by test.py
+.test/**
+
+# Final output given by __main__.py, not part of the shipped repo
+.output/**
+
+# Compiled bytecode cache Python regenerates automatically on every run - safe to
+# ignore anywhere it shows up, not just at the repo root (no /** - that anchors the
+# pattern to this directory and misses nested ones like nces_sd_download/__pycache__/)
+__pycache__/
