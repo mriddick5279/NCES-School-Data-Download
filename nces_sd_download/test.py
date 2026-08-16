@@ -7,7 +7,7 @@ sparingly. Run directly:
     python -m nces_sd_download.test --size 5 --type public --max-workers 5 --seed 42
 """
 
-import argparse, logging ,random, tempfile
+import argparse, logging ,random, shutil, tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -46,10 +46,13 @@ def test_one_state_public_download(output_dir: Path, pub_config, state: str, hea
         pub_config, 'public', {state: shared.STATE_FIPS[state]}, output_dir,
         retries=2, headless=headless, max_workers=1,
     )
-    shared.report_result('public', result)
-    if state in result.dataframes:
-        csv_path = output_dir / 'public' / f"{state}_sd.csv"
-        assert csv_path.exists(), f"expected output file missing: {csv_path}"
+    try:
+        shared.report_result('public', result)
+        if state in result.dataframes:
+            csv_path = output_dir / 'public' / f"{state}_sd.csv"
+            assert csv_path.exists(), f"expected output file missing: {csv_path}"
+    finally:
+        shutil.rmtree(result.downloads_root, ignore_errors=True)
 
 
 def test_one_state_private_download(output_dir: Path, priv_config, state: str, headless: bool) -> None:
@@ -57,10 +60,13 @@ def test_one_state_private_download(output_dir: Path, priv_config, state: str, h
         priv_config, 'private', {state: shared.STATE_FIPS[state]}, output_dir,
         retries=2, headless=headless, max_workers=1,
     )
-    shared.report_result('private', result)
-    if state in result.dataframes:
-        csv_path = output_dir / 'private' / f"{state}_sd.csv"
-        assert csv_path.exists(), f"expected output file missing: {csv_path}"
+    try:
+        shared.report_result('private', result)
+        if state in result.dataframes:
+            csv_path = output_dir / 'private' / f"{state}_sd.csv"
+            assert csv_path.exists(), f"expected output file missing: {csv_path}"
+    finally:
+        shutil.rmtree(result.downloads_root, ignore_errors=True)
 
 
 def test_one_state_public_and_private_concurrent(output_dir: Path, type_configs: dict, state: str) -> None:
@@ -83,15 +89,17 @@ def test_one_state_public_and_private_concurrent(output_dir: Path, type_configs:
         }
         results = {type_name: future.result() for type_name, future in futures.items()}
 
-    for type_name, result in results.items():
-        shared.report_result(type_name, result)
+    try:
+        for type_name, result in results.items():
+            shared.report_result(type_name, result)
 
-    merged_states = shared.merge_type_results(results, output_dir)
+        merged_states = shared.merge_type_results(results, output_dir)
 
-    # A state can legitimately have zero results for one type (e.g. no private
-    # schools) or, rarely, both - that's real NCES data, not a test failure. Only
-    # check the merge itself when there was actually something for it to merge.
-    merge_test_assert(state, merged_states, output_dir, results)
+        merge_test_assert(state, merged_states, output_dir, results)
+    finally:
+        # Remove downloaded files for both types
+        for result in results.values():
+            shutil.rmtree(result.downloads_root, ignore_errors=True)
 
 
 def test_states_concurrent_download(output_dir: Path, type_configs: dict, states: list[str], max_workers: int) -> None:
@@ -115,15 +123,20 @@ def test_states_concurrent_download(output_dir: Path, type_configs: dict, states
         }
         results = {type_name: future.result() for type_name, future in futures.items()}
 
-    for type_name, result in results.items():
-        shared.report_result(type_name, result)
-        for state in result.dataframes:
-            csv_path = output_dir / type_name / f"{state}_sd.csv"
-            assert csv_path.exists(), f"expected output file missing: {csv_path}"
+    try:
+        for type_name, result in results.items():
+            shared.report_result(type_name, result)
+            for state in result.dataframes:
+                csv_path = output_dir / type_name / f"{state}_sd.csv"
+                assert csv_path.exists(), f"expected output file missing: {csv_path}"
 
-    merged_states = shared.merge_type_results(results, output_dir)
-    for state in states:
-        merge_test_assert(state, merged_states, output_dir, results)
+        merged_states = shared.merge_type_results(results, output_dir)
+        for state in states:
+            merge_test_assert(state, merged_states, output_dir, results)
+    finally:
+        # Remove downloaded files for both types
+        for result in results.values():
+            shutil.rmtree(result.downloads_root, ignore_errors=True)
 
 
 def main() -> None:

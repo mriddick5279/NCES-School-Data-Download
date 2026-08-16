@@ -1,9 +1,9 @@
 """Shared Selenium driver setup, per-state download loop, retry logic, and CSV
-combining used by both the public and private NCES school directory downloads."""
+combining used for both public and private NCES school directory downloads."""
 
 from __future__ import annotations
 
-import logging, os, shutil, time
+import logging, os, tempfile, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -80,18 +80,33 @@ STATE_FIPS = {
 # Entries in STATE_FIPS that aren't one of the 50 states: DC plus the five inhabited territories.
 TERRITORIES = {'DC', 'American Samoa', 'Guam', 'Northern Mariana Islands', 'Puerto Rico', 'U.S. Virgin Islands'}
 
+"""PipelineResult DataClass:
+
+Represents the results of a pipeline run for a state/type pair.
+Used to determine which states succeeded, failed, or were skipped (no results).
+Contains the following attributes:
+- type_name: str - "public" or "private", specifies type of school data downloaded
+- downloads_root: Path - temporary directory where the state/type pair's Excel file was downloaded
+- dataframes: dict[str, pd.DataFrame] - mapping of state name to its standardized DataFrame (only for states that succeeded)
+- skipped_states: list[str] - list of state names that were skipped (no results found for this type)
+- failed_states: list[str] - list of state names that failed to download or standardize after all retries were exhausted
+"""
 @dataclass
 class PipelineResult:
     type_name: str
+    downloads_root: Path
     dataframes: dict[str, pd.DataFrame] = field(default_factory=dict)
     skipped_states: list[str] = field(default_factory=list)
     failed_states: list[str] = field(default_factory=list)
 
-    @property
-    def succeeded(self) -> bool:
-        return not self.failed_states
+"""StateOutcome DataClass:
 
-
+Represents the outcome of processing a single state/type pair.
+Contains the following attributes:
+- state: str - name of the state/territory processed
+- status: str - "ok", "skipped", or "failed", result of processing state/type pair
+- dataframe: pd.DataFrame | None - the standardized DataFrame for this state/type pair, None value passed if state was skipped or failed
+"""
 @dataclass
 class StateOutcome:
     state: str
@@ -99,7 +114,8 @@ class StateOutcome:
     dataframe: pd.DataFrame | None = None
 
 def build_chrome_options(download_dir: Path, headless: bool = True) -> webdriver.ChromeOptions:
-    """Configure Chrome to auto-download into download_dir, matching the notebooks' setup."""
+    """Configure Chrome to auto-download into download_dir"""
+
     chrome_options = webdriver.ChromeOptions()
     prefs = {"download.default_directory": str(download_dir)}
     chrome_options.add_experimental_option("prefs", prefs)
@@ -116,19 +132,18 @@ def download_state_excel(
     action_timeout: float = 20,
     download_timeout: float = 30,
     poll_interval: float = 0.5,) -> Path | None:
-
     """Navigate to a state's search results and download its Excel export.
 
     Returns the downloaded file's path, or None if the state has no results for
-    this school type (not an error - some states/territories genuinely have zero).
+    this school type (i.e. terrirtories don't typically have private school data).
     """
     files_before = set(os.listdir(download_dir))
-    driver.get(url)
 
+    # Fetch and wait for page with URL
+    driver.get(url)
     wait = WebDriverWait(driver, action_timeout)
 
-    # Check quickly whether this state has any results before committing to the full
-    # click/wait sequence - states with zero results won't have an Excel export link at all.
+    # Determine if state/type pair has anything to download by waiting for the Excel link to appear
     try:
         excel_link = WebDriverWait(driver, no_results_timeout).until(
             EC.element_to_be_clickable((By.CLASS_NAME, "excelclass"))
@@ -136,11 +151,15 @@ def download_state_excel(
     except TimeoutException:
         return None
 
+    # Click Excel file link and wait for page to 'exist'
     excel_link.click()
     wait.until(EC.number_of_windows_to_be(2))
+
+    # Switch to page and wait for 'Download Excel File' link to appear to downlaod state/type pair information
     driver.switch_to.window(driver.window_handles[-1])
     wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Download Excel File"))).click()
 
+    # Wait for the download to complete by polling the download directory for a new Excel file
     elapsed = 0.0
     new_files: list[str] = []
     while elapsed < download_timeout:
@@ -153,22 +172,11 @@ def download_state_excel(
         time.sleep(poll_interval)
         elapsed += poll_interval
 
+    # Determine if the download completed successfully or timed out
     if not new_files:
         raise TimeoutError(f"download did not complete within {download_timeout}s")
 
-    return download_dir / new_files[0]
-
-def remove_download_file(excel_path: Path) -> None:
-    attempts = 5
-    delay = 1.0
-
-    for attempt in range(attempts):
-        try:
-            excel_path.unlink(missing_ok=True)
-            return
-        except PermissionError as e:
-            logger.warning(f"Attempt {attempt + 1} to delete {excel_path} failed: {e}")
-            time.sleep(delay)
+    return download_dir / new_files[0] # Return downloaded file path
 
 def process_state(
     type_config,
@@ -181,47 +189,57 @@ def process_state(
     headless: bool,
     timeouts: dict,
 ) -> StateOutcome:
-    """Attempt one state up to retries+1 times, in its own isolated download
-    directory so concurrent workers never collide over the same folder.
+    """Process the state/type pair by doing the following:
 
-    download_dir is keyed by state name (unique per worker) rather than
-    tempfile.mkdtemp, and lives under downloads_root, which the caller
-    (run_pipeline) owns and removes once the whole pipeline run is done.
+    1. Build download URL
+    2. Download excel file into a temporary directory
+    3. Transform the excel file into a DataFrame
+    4. Write the DataFrame to a CSV file in the type_output_dir
     """
+
+    # Build download URL for state/type pair
     url = type_config.URL_TEMPLATE.format(fips=fips)
+
+    # Create temporary download directory for state/type pairs
     download_dir = downloads_root / state
     download_dir.mkdir(parents=True, exist_ok=True)
 
-    try:
-        attempt = 0
-        while True:
-            attempt += 1
-            driver = None
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            driver = None # Instantiate driver instance
             try:
+                # Create the driver and download excel file to temporary download directory
                 driver = webdriver.Chrome(options=build_chrome_options(download_dir, headless))
                 excel_path = download_state_excel(driver, url, download_dir, **timeouts)
 
-                if excel_path is None:
+                if excel_path is None: # No data found for state/type pair (not a failure, just nothing to download)
                     logger.info("%s %s: no %s schools found, skipping", state, type_name, type_name)
                     return StateOutcome(state, "skipped")
-                
-                excel_tables = pd.read_html(excel_path)
-                try:
-                    df = type_config.transform(excel_tables, state)
-                    df.to_csv(type_output_dir / f"{state}_sd.csv", index=False)
-                    logger.info("%s %s: wrote %d rows", state, type_name, len(df))
-                finally:
-                    remove_download_file(excel_path)
-                return StateOutcome(state, "ok", df)
-            except Exception:
-                logger.exception("%s %s: attempt %d/%d failed", state, type_name, attempt, retries + 1)
-                if attempt > retries:
-                    return StateOutcome(state, "failed")
+
+                excel_tables = pd.read_html(excel_path) # Read state/type pair information into dataframes for standardization
             finally:
                 if driver is not None:
                     driver.quit()
-    finally:
-        shutil.rmtree(download_dir, ignore_errors=True)
+
+            # Standardize state/type pair information and save to CSV in temporary type output directory
+            df = type_config.transform(excel_tables, state)
+            df.to_csv(type_output_dir / f"{state}_sd.csv", index=False)
+
+            # Log and return successful download and standardization of state/type pair information
+            logger.info("%s %s: wrote %d rows", state, type_name, len(df))
+            return StateOutcome(state, "ok", df)
+        
+        except Exception: # Error occurs: either attempt limit reach (failure) or download retry is needed
+            logger.exception("%s %s: attempt %d/%d failed", state, type_name, attempt, retries + 1)
+            if attempt > retries:
+                return StateOutcome(state, "failed")
+
+            # Backoff exponentially before retrying state/type pair download
+            backoff = min(2 ** attempt, 30)
+            logger.info("%s %s: retrying in %ds", state, type_name, backoff)
+            time.sleep(backoff)
 
 
 def run_pipeline(
@@ -234,66 +252,57 @@ def run_pipeline(
     max_workers: int = 10,
     **timeouts,
 ) -> PipelineResult:
-    """Download and transform every state for one school type, concurrently.
+    """Actual pipeline functionality for downloading, standardizing, and writing CSVs for state/type pairs.
+    Achieved by doing the following:
 
-    type_config must expose URL_TEMPLATE (a str with a {fips} placeholder) and
-    transform(excel_tables, state) -> pd.DataFrame.
-
-    Runs up to max_workers states at once, each with its own Chrome driver and its
-    own isolated download directory. Writes one CSV per successful state to
-    output_dir/type_name/{state}_sd.csv and returns a PipelineResult with the
-    collected DataFrames plus which states were skipped (zero results) or failed
-    (after exhausting retries). Extra keyword args are forwarded to
-    download_state_excel as timeout overrides.
+    1. Create output directory for final output
+    2. Create temporary download directory for state/territory files
+    3. Create a thread pool and process each state/type pair concurrently
+    4. Track results of each state/type pair download by determinnig whether it succeeded, failed, or skipped (no results)
+    5. Return results to be used for reporting and merging
     """
-    # Chrome's download.default_directory pref requires an absolute path - a
-    # relative one (e.g. --output-dir test) can't be resolved against Chrome's
-    # own working directory, so it silently falls back to the real Downloads
-    # folder instead of raising, and the poller in download_state_excel then
-    # times out watching a directory nothing ever gets written to.
+
+    # Create absolute path to resolve with Chrome's download directory (which doesn't support relative paths)
     output_dir = Path(output_dir).resolve()
 
     type_output_dir = output_dir / type_name
     type_output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Base folder for this run's per-state download dirs. Each worker gets its
-    # own state-named subfolder (see process_state) and cleans that subfolder
-    # up as it finishes; this rmtree in the finally below is the one true
-    # end-of-process cleanup, run once all workers have completed or failed.
-    downloads_root = type_output_dir / ".downloads"
-    downloads_root.mkdir(parents=True, exist_ok=True)
+    # Create temp download directory for state/territory files
+    downloads_root = Path(tempfile.mkdtemp(prefix=f"nces_{type_name}_"))
+    logger.info("%s: downloads_root=%s", type_name, downloads_root)
 
-    result = PipelineResult(type_name=type_name)
+    # Instantiate instance of PipelineResult to track results of each state/type pair download
+    result = PipelineResult(type_name=type_name, downloads_root=downloads_root)
 
-    try:
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(
-                    process_state, type_config, type_name, state, fips,
-                    type_output_dir, downloads_root, retries, headless, timeouts,
-                )
-                for state, fips in states.items()
-            ]
-            for future in as_completed(futures):
-                outcome = future.result()
-                if outcome.status == "ok":
-                    assert outcome.dataframe is not None
-                    result.dataframes[outcome.state] = outcome.dataframe
-                elif outcome.status == "skipped":
-                    result.skipped_states.append(outcome.state)
-                else:
-                    result.failed_states.append(outcome.state)
-    finally:
-        shutil.rmtree(downloads_root, ignore_errors=True)
+    # Create thread pool to execute state/type pair downloads concurrently
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(
+                process_state, type_config, type_name, state, fips,
+                type_output_dir, downloads_root, retries, headless, timeouts,
+            )
+            for state, fips in states.items()
+        ]
 
-    return result
+        # As threads finish, store results of each state/type pair download in the PipelineResult instance
+        for future in as_completed(futures):
+            outcome = future.result()
+            if outcome.status == "ok":
+                assert outcome.dataframe is not None
+                result.dataframes[outcome.state] = outcome.dataframe
+            elif outcome.status == "skipped":
+                result.skipped_states.append(outcome.state)
+            else:
+                result.failed_states.append(outcome.state)
+
+    return result # Pass overall results back to caller for reporting and merging of public/private school information
 
 
 def report_result(type_name: str, result: PipelineResult) -> None:
-    """Log a summary of one type's PipelineResult - succeeded/skipped/failed counts,
-    plus the names of any failed states so they're not just a number. Skipped states
-    aren't warning-worthy (a state genuinely having zero results for a type is valid
-    data, not an error) but failed ones usually indicate something worth a look."""
+    """Log summary of a PipelineResult - succeeded/skipped/failed counts,
+    plus the names of any failed states. Skipped states"""
+
     logger.info(
         "%s: %d succeeded, %d skipped, %d failed",
         type_name, len(result.dataframes), len(result.skipped_states), len(result.failed_states),
@@ -305,8 +314,8 @@ def report_result(type_name: str, result: PipelineResult) -> None:
 def combine_dataframes(dataframes: list[pd.DataFrame]) -> pd.DataFrame:
     """Merge per-state DataFrames from one or more school types into a single DataFrame.
 
-    Column sets don't need to match - pd.concat unions them, and any column a given
-    row's type doesn't have gets filled blank instead of left as NaN.
+    Union of all columns to resolve schema differences between public and private school exports.
+    Missing values filled with empty string
     """
     if not dataframes:
         return pd.DataFrame()
@@ -315,26 +324,30 @@ def combine_dataframes(dataframes: list[pd.DataFrame]) -> pd.DataFrame:
 
 
 def merge_type_results(results: dict[str, PipelineResult], output_dir: Path) -> list[str]:
-    """Merge each state's per-type results (e.g. public + private) into one
-    {state}_sd.csv per state directly under output_dir, then remove the now-redundant
-    per-type source files and, once empty, the per-type subfolders themselves.
-
-    results maps type_name -> that type's PipelineResult, as returned by run_pipeline.
-    Returns the sorted list of states that had at least one successful result to merge.
+    """Merge results of public and private school information downloads into a single per-state CSV file.
+    Cleans up subfolders created during pipeline execution
     """
+
+    # Collect states/territories that succeeded across at least one type
     succeeded_states = {state for result in results.values() for state in result.dataframes}
     for state in sorted(succeeded_states):
+
+        # Gather all dataframes for this state/territory for merging
         state_dataframes = [result.dataframes[state] for result in results.values() if state in result.dataframes]
+
+        # Merge and write all dataframes for this state/territory into one CSV file
         combined = combine_dataframes(state_dataframes)
         combined.to_csv(output_dir / f"{state}_sd.csv", index=False)
 
+        # Remove downloaded per-type source files for this state
         for type_name in results:
             (output_dir / type_name / f"{state}_sd.csv").unlink(missing_ok=True)
 
+    # Remove per-type subfolders
     for type_name in results:
         try:
             (output_dir / type_name).rmdir()
         except OSError:
-            pass  # not empty (e.g. a stray leftover file) - leave it for inspection rather than force-delete
+            pass  # not empty (e.g. a stray leftover file) - leave it for inspection
 
-    return sorted(succeeded_states)
+    return sorted(succeeded_states) # Return states with successful downloads to caller for logging
