@@ -18,6 +18,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 logger = logging.getLogger("nces_sd_download")
 
+# Fixed location the Streamlit pages read/write per-state CSVs to - not user-configurable
+# there (unlike __main__.py's --output-dir flag) since the Download and Browse pages need
+# to agree on a single directory without the user having to keep two text inputs in sync.
+DEFAULT_OUTPUT_DIR = Path.cwd() / ".output"
+
 # State/territory -> FIPS code. Identical between the public and private NCES search forms.
 STATE_FIPS = {
     'Alabama': '01',

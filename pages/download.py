@@ -1,7 +1,8 @@
-"""Download page - pick school type(s), states, and an output directory, then run
-the pipeline and show a summary. Mirrors __main__.py's CLI orchestration (same
-shared.run_pipeline / shared.merge_type_results calls), just driven by Streamlit
-widgets instead of argparse.
+"""Download page - pick school type(s) and states, then run the pipeline and show a
+summary. Writes to shared.DEFAULT_OUTPUT_DIR (not user-configurable here, unlike
+__main__.py's --output-dir flag) so the Browse page always knows where to look.
+Mirrors __main__.py's CLI orchestration (same shared.run_pipeline /
+shared.merge_type_results calls), just driven by Streamlit widgets instead of argparse.
 
 Runs each selected type sequentially rather than concurrently (unlike __main__.py's
 ThreadPoolExecutor over types) - simpler to reason about for a first pass, at the
@@ -11,7 +12,6 @@ will sit at the spinner for several minutes - a background task queue would be t
 natural next step if that's too slow to work with interactively.
 """
 import shutil
-from pathlib import Path
 
 import streamlit as st
 
@@ -39,7 +39,7 @@ else:
     chosen = st.multiselect("Pick specific states/territories", options=sorted(shared.STATE_FIPS))
     states = {name: shared.STATE_FIPS[name] for name in chosen}
 
-output_dir = Path(st.text_input("Output directory", value=str(Path.cwd() / ".output")))
+output_dir = shared.DEFAULT_OUTPUT_DIR
 
 retries = int(st.number_input("Retries per state", min_value=0, max_value=5, value=2))
 
