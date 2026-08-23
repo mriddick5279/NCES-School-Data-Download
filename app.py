@@ -13,6 +13,7 @@ st.set_page_config(page_title="NCES School Directory Downloader", layout="wide")
 
 home = st.Page("pages/home.py", title="Home", icon="🏠", default=True)
 download = st.Page("pages/download.py", title="Download", icon="⬇️")
+browse = st.Page("pages/browse.py", title="Browse", icon="📊")
 
-pg = st.navigation([home, download])
+pg = st.navigation([home, download, browse])
 pg.run()
