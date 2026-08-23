@@ -4,6 +4,7 @@ combining used for both public and private NCES school directory downloads."""
 from __future__ import annotations
 
 import logging, os, tempfile, time
+import urllib.error, urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -112,6 +113,29 @@ class StateOutcome:
     state: str
     status: str  # "ok", "skipped", or "failed"
     dataframe: pd.DataFrame | None = None
+
+# FIPS code used to build a throwaway probe URL for the reachability check below - DC,
+# since it's always present in STATE_FIPS and returns a small result set either way.
+PREFLIGHT_FIPS = "11"
+
+
+def is_nces_reachable(url: str, timeout: float = 10) -> bool:
+    """Plain stdlib HTTP GET (no browser/Selenium involved) to check a specific NCES
+    search endpoint is up before starting a scrape against it. Checking just the bare
+    nces.ed.gov domain isn't enough - the public and private search paths under it can
+    individually reset connections even while the root domain responds fine - so callers
+    should pass the actual per-type URL_TEMPLATE (formatted with PREFLIGHT_FIPS) they're
+    about to scrape. Lets a run fail fast with one clear message instead of silently
+    working through every state's full retry/backoff schedule when the endpoint itself
+    is unreachable (server-side outage, or a WAF resetting the connection) - a problem
+    no amount of per-state retrying can fix.
+    """
+    try:
+        urllib.request.urlopen(url, timeout=timeout)
+        return True
+    except (urllib.error.URLError, OSError):
+        return False
+
 
 def build_chrome_options(download_dir: Path, headless: bool = True) -> webdriver.ChromeOptions:
     """Configure Chrome to auto-download into download_dir"""

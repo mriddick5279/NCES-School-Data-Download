@@ -47,6 +47,20 @@ shared.logger.info(
     args.type, len(states), args.output_dir
 )
 
+unreachable_types = [
+    type_name for type_name in types_to_run
+    if not shared.is_nces_reachable(
+        TYPE_CONFIGS[type_name].URL_TEMPLATE.format(fips=shared.PREFLIGHT_FIPS)
+    )
+]
+if unreachable_types:
+    shared.logger.error(
+        "nces.ed.gov isn't responding right now for: %s (site outage or a connection "
+        "reset on their end) - aborting before downloading anything.",
+        ", ".join(unreachable_types),
+    )
+    sys.exit(1)
+
 # Execute pipeline
 results: dict[str, shared.PipelineResult] = {}
 try:

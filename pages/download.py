@@ -48,32 +48,48 @@ run_clicked = st.button(
 )
 
 if run_clicked:
-    results: dict[str, shared.PipelineResult] = {}
-    try:
-        with st.spinner(
-            f"Downloading {len(states)} state(s)/territory(ies) for "
-            f"{len(selected_types)} type(s) - this can take a while..."
-        ):
-            for type_name in selected_types:
-                results[type_name] = shared.run_pipeline(
-                    TYPE_CONFIGS[type_name], type_name, states, output_dir,
-                    retries=retries,
-                )
+    with st.spinner("Checking nces.ed.gov is reachable..."):
+        unreachable_types = [
+            type_name for type_name in selected_types
+            if not shared.is_nces_reachable(
+                TYPE_CONFIGS[type_name].URL_TEMPLATE.format(fips=shared.PREFLIGHT_FIPS)
+            )
+        ]
 
-            for type_name, result in results.items():
-                shared.report_result(type_name, result)
+    if unreachable_types:
+        st.error(
+            f"nces.ed.gov isn't responding right now for: {', '.join(unreachable_types)}. "
+            "The run was skipped before downloading anything. This is on their end "
+            "(site outage or a connection reset) rather than a problem with the app - "
+            "wait a bit and try again."
+        )
+    else:
+        results: dict[str, shared.PipelineResult] = {}
+        try:
+            with st.spinner(
+                f"Downloading {len(states)} state(s)/territory(ies) for "
+                f"{len(selected_types)} type(s) - this can take a while..."
+            ):
+                for type_name in selected_types:
+                    results[type_name] = shared.run_pipeline(
+                        TYPE_CONFIGS[type_name], type_name, states, output_dir,
+                        retries=retries,
+                    )
 
-            succeeded_states = shared.merge_type_results(results, output_dir)
-    finally:
-        # Deferred until download AND merge are both done - see run_pipeline's
-        # docstring for why (cleaning up right after each type's own states finish
-        # was racing a transient Windows file lock).
-        for result in results.values():
-            shutil.rmtree(result.downloads_root, ignore_errors=True)
+                for type_name, result in results.items():
+                    shared.report_result(type_name, result)
 
-    st.session_state["download_results"] = results
-    st.session_state["download_succeeded_states"] = succeeded_states
-    st.session_state["download_output_dir"] = output_dir
+                succeeded_states = shared.merge_type_results(results, output_dir)
+        finally:
+            # Deferred until download AND merge are both done - see run_pipeline's
+            # docstring for why (cleaning up right after each type's own states finish
+            # was racing a transient Windows file lock).
+            for result in results.values():
+                shutil.rmtree(result.downloads_root, ignore_errors=True)
+
+        st.session_state["download_results"] = results
+        st.session_state["download_succeeded_states"] = succeeded_states
+        st.session_state["download_output_dir"] = output_dir
 
 if "download_results" in st.session_state:
     st.subheader("Results")
