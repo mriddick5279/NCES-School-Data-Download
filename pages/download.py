@@ -41,10 +41,7 @@ else:
 
 output_dir = Path(st.text_input("Output directory", value=str(Path.cwd() / ".output")))
 
-with st.expander("Advanced options"):
-    retries = int(st.number_input("Retries per state", min_value=0, max_value=5, value=2))
-    max_workers = int(st.number_input("Max concurrent workers per type", min_value=1, max_value=25, value=10))
-    headless = st.checkbox("Headless Chrome", value=True)
+retries = int(st.number_input("Retries per state", min_value=0, max_value=5, value=2))
 
 run_clicked = st.button(
     "Run pipeline", type="primary", disabled=not selected_types or not states,
@@ -60,7 +57,7 @@ if run_clicked:
             for type_name in selected_types:
                 results[type_name] = shared.run_pipeline(
                     TYPE_CONFIGS[type_name], type_name, states, output_dir,
-                    retries=retries, headless=headless, max_workers=max_workers,
+                    retries=retries,
                 )
 
             for type_name, result in results.items():
