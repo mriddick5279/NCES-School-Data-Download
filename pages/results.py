@@ -16,7 +16,7 @@ import streamlit as st
 
 from nces_sd_download import shared
 
-st.title("Browse")
+st.title("Results")
 
 output_dir = shared.DEFAULT_OUTPUT_DIR
 
@@ -59,4 +59,4 @@ st.download_button(
     "Download", data=selected_path.read_bytes(),
     file_name=selected_path.name, mime="text/csv",
 )
-st.dataframe(df, use_container_width=True)
+st.dataframe(df, width='content')

@@ -102,6 +102,5 @@ if "download_results" in st.session_state:
             st.warning(f"Failed: {', '.join(result.failed_states)}")
 
     st.success(
-        f"Wrote {len(st.session_state['download_succeeded_states'])} merged file(s) "
-        f"to {st.session_state['download_output_dir']}"
+        'Download successful! Navigate to "Browse" to view the results.'
     )
