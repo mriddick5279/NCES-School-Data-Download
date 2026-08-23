@@ -18,7 +18,7 @@ default_output_dir = st.session_state.get("download_output_dir", Path.cwd() / ".
 output_dir = Path(st.text_input("Output directory", value=str(default_output_dir)))
 
 if not output_dir.is_dir():
-    st.info(f"No output directory found at {output_dir}. Run a download first.")
+    st.info(f"No output directory found. Run a download first.")
     st.stop()
 
 state_files = {path.stem.removesuffix("_sd"): path for path in sorted(output_dir.glob("*_sd.csv"))}
