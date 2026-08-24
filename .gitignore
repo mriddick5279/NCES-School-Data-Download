@@ -25,3 +25,7 @@ nces_pipeline_plan.md
 # ignore anywhere it shows up, not just at the repo root (no /** - that anchors the
 # pattern to this directory and misses nested ones like nces_sd_download/__pycache__/)
 __pycache__/
+
+# Docker build files - kept local only, not meant for others to deploy from this repo
+Dockerfile
+.dockerignore
