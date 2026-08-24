@@ -91,6 +91,13 @@ if run_clicked:
         st.session_state["download_succeeded_states"] = succeeded_states
         st.session_state["download_output_dir"] = output_dir
 
+        # Without this, app.py's nav (built before this page runs, on the same rerun
+        # that handled the button click) wouldn't pick up shared.has_downloaded_output()
+        # flipping to true until some later, unrelated interaction. Forcing a fresh
+        # rerun now re-evaluates it immediately, so Results shows up in the sidebar
+        # right away rather than only after the next click.
+        st.rerun()
+
 if "download_results" in st.session_state:
     st.subheader("Results")
     for type_name, result in st.session_state["download_results"].items():
@@ -102,5 +109,5 @@ if "download_results" in st.session_state:
             st.warning(f"Failed: {', '.join(result.failed_states)}")
 
     st.success(
-        'Download successful! Navigate to "Browse" to view the results.'
+        'Download successful! Navigate to "Results" to view the data.'
     )

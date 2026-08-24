@@ -23,6 +23,16 @@ logger = logging.getLogger("nces_sd_download")
 # to agree on a single directory without the user having to keep two text inputs in sync.
 DEFAULT_OUTPUT_DIR = Path.cwd() / ".output"
 
+
+def has_downloaded_output() -> bool:
+    """Whether DEFAULT_OUTPUT_DIR has at least one merged per-state CSV on disk yet.
+    Checked against the filesystem rather than session state, since the thing that
+    actually matters (is there data to show) persists across page reloads and new
+    browser sessions, not just within the session that ran the download. Shared by
+    app.py (to decide whether the Results page belongs in the nav at all) and
+    results.py (its own guard against being opened directly with nothing to show)."""
+    return DEFAULT_OUTPUT_DIR.is_dir() and any(DEFAULT_OUTPUT_DIR.glob("*_sd.csv"))
+
 # State/territory -> FIPS code. Identical between the public and private NCES search forms.
 STATE_FIPS = {
     'Alabama': '01',

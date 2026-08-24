@@ -20,15 +20,13 @@ st.title("Results")
 
 output_dir = shared.DEFAULT_OUTPUT_DIR
 
-if not output_dir.is_dir():
+# app.py already keeps this page out of the nav until shared.has_downloaded_output()
+# is true, but it's still directly reachable by URL, so guard here too.
+if not shared.has_downloaded_output():
     st.info("No downloaded files yet. Run a download first.")
     st.stop()
 
 state_files = {path.stem.removesuffix("_sd"): path for path in sorted(output_dir.glob("*_sd.csv"))}
-
-if not state_files:
-    st.info("No downloaded files yet. Run a download first.")
-    st.stop()
 
 
 def _zip_all(paths: list) -> bytes:
@@ -59,4 +57,4 @@ st.download_button(
     "Download", data=selected_path.read_bytes(),
     file_name=selected_path.name, mime="text/csv",
 )
-st.dataframe(df, width='content')
+st.dataframe(df, width='content', height='content')
