@@ -2,16 +2,17 @@
 summary. Writes to shared.DEFAULT_OUTPUT_DIR (not user-configurable here, unlike
 __main__.py's --output-dir flag) so the Browse page always knows where to look.
 Mirrors __main__.py's CLI orchestration (same shared.run_pipeline /
-shared.merge_type_results calls), just driven by Streamlit widgets instead of argparse.
+shared.merge_type_results calls, same ThreadPoolExecutor-over-types concurrency),
+just driven by Streamlit widgets instead of argparse.
 
-Runs each selected type sequentially rather than concurrently (unlike __main__.py's
-ThreadPoolExecutor over types) - simpler to reason about for a first pass, at the
-cost of taking longer when both types are selected. The whole run blocks this script
-until done (Streamlit has no built-in background-job UI), so a full all-states run
-will sit at the spinner for several minutes - a background task queue would be the
-natural next step if that's too slow to work with interactively.
+The whole run still blocks this script until done (Streamlit has no built-in
+background-job UI), so a full all-states run will sit at the spinner for a while -
+a background task queue would be the natural next step if that's too slow to work
+with interactively. Running both types concurrently only shortens that wait when
+both are selected; a single-type run is unaffected.
 """
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 
 import streamlit as st
 
@@ -70,11 +71,16 @@ if run_clicked:
                 f"Downloading {len(states)} state(s)/territory(ies) for "
                 f"{len(selected_types)} type(s) - this can take a while..."
             ):
-                for type_name in selected_types:
-                    results[type_name] = shared.run_pipeline(
-                        TYPE_CONFIGS[type_name], type_name, states, output_dir,
-                        retries=retries,
-                    )
+                with ThreadPoolExecutor(max_workers=len(selected_types)) as executor:
+                    futures = {
+                        type_name: executor.submit(
+                            shared.run_pipeline,
+                            TYPE_CONFIGS[type_name], type_name, states, output_dir,
+                            retries=retries,
+                        )
+                        for type_name in selected_types
+                    }
+                    results = {type_name: future.result() for type_name, future in futures.items()}
 
                 for type_name, result in results.items():
                     shared.report_result(type_name, result)
