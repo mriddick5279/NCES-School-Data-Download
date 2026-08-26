@@ -35,11 +35,16 @@ def _zip_all(paths: list) -> bytes:
             zf.write(path, arcname=path.name)
     return buf.getvalue()
 
+with st.container(width='content',height='content',horizontal=True,gap='small'):
+    st.download_button(
+        "Download All", data=_zip_all(list(state_files.values())),
+        file_name="nces_downloads.zip", mime="application/zip",
+    )
 
-st.download_button(
-    "Download All", data=_zip_all(list(state_files.values())),
-    file_name="nces_downloads.zip", mime="application/zip",
-)
+    clear_button = st.button('Clear Downloads')
+
+if clear_button:
+    st.success('Clear button clicked')
 
 selected_state = st.sidebar.selectbox("State", options=sorted(state_files))
 
