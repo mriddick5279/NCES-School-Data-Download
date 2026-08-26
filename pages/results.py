@@ -1,11 +1,10 @@
-"""Browse page - view the most recently downloaded per-state CSVs as a spreadsheet.
+"""
+Results page - view the most recently downloaded per-state CSVs as a spreadsheet.
 
-Reads from shared.DEFAULT_OUTPUT_DIR, the same fixed directory the Download page writes
-to - neither page exposes it as a user-configurable path, so the two always agree on
-where to look without the user having to keep them in sync. Files are named
-{state}_sd.csv by shared.merge_type_results, so the state list is derived directly
-from what's on disk rather than STATE_FIPS - only states that actually have a
-downloaded file show up as selectable.
+Reads downloaded files from default output directory and presents them to the user within
+dataframe container. User can select which state files to view by using the dropdown in
+the navigation pane under the 'Results' page tab. They also have the option to download the
+current file they are looking at or all files that were downloaded (packaged into zip file).
 """
 import io
 import zipfile
@@ -21,7 +20,7 @@ st.title("Results")
 output_dir = shared.DEFAULT_OUTPUT_DIR
 
 # app.py already keeps this page out of the nav until shared.has_downloaded_output()
-# is true, but it's still directly reachable by URL, so guard here too.
+# is true, but it's still directly reachable by URL, so show this just in case
 if not shared.has_downloaded_output():
     st.info("No downloaded files yet. Run a download first.")
     st.stop()

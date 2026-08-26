@@ -47,6 +47,7 @@ shared.logger.info(
     args.type, len(states), args.output_dir
 )
 
+# If state data cannot be reached, abort download process for state beforehand
 unreachable_types = [
     type_name for type_name in types_to_run
     if not shared.is_nces_reachable(
@@ -86,7 +87,7 @@ try:
 
     shared.logger.info("Wrote %d merged per-state file(s) to %s", len(succeeded_states), args.output_dir)
 finally:
-    # Remove downloaded files for both types
+    # Remove temporary download files for both types
     for result in results.values():
         shutil.rmtree(result.downloads_root, ignore_errors=True)
 

@@ -1,15 +1,7 @@
-"""Download page - pick school type(s) and states, then run the pipeline and show a
-summary. Writes to shared.DEFAULT_OUTPUT_DIR (not user-configurable here, unlike
-__main__.py's --output-dir flag) so the Browse page always knows where to look.
-Mirrors __main__.py's CLI orchestration (same shared.run_pipeline /
-shared.merge_type_results calls), just driven by Streamlit widgets instead of argparse.
+"""
+Download page - pick school type(s) and states, then run the pipeline and show a summary.
 
-Runs each selected type sequentially rather than concurrently (unlike __main__.py's
-ThreadPoolExecutor over types) - simpler to reason about for a first pass, at the
-cost of taking longer when both types are selected. The whole run blocks this script
-until done (Streamlit has no built-in background-job UI), so a full all-states run
-will sit at the spinner for several minutes - a background task queue would be the
-natural next step if that's too slow to work with interactively.
+Downloads to default output directory that cannot be changed by the user for consistency when downloading.
 """
 import shutil
 

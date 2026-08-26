@@ -25,12 +25,12 @@ DEFAULT_OUTPUT_DIR = Path.cwd() / ".output"
 
 
 def has_downloaded_output() -> bool:
-    """Whether DEFAULT_OUTPUT_DIR has at least one merged per-state CSV on disk yet.
-    Checked against the filesystem rather than session state, since the thing that
-    actually matters (is there data to show) persists across page reloads and new
-    browser sessions, not just within the session that ran the download. Shared by
-    app.py (to decide whether the Results page belongs in the nav at all) and
-    results.py (its own guard against being opened directly with nothing to show)."""
+    """
+    Determine if school data files have actually been downloaded
+    
+    Used to determine whether 'Results' tab on Streamlit navigator should be shown or not.
+    Personal preference to have the tab 'hidden' if no results have been downloaded
+    """
     return DEFAULT_OUTPUT_DIR.is_dir() and any(DEFAULT_OUTPUT_DIR.glob("*_sd.csv"))
 
 # State/territory -> FIPS code. Identical between the public and private NCES search forms.
@@ -135,16 +135,7 @@ PREFLIGHT_FIPS = "11"
 
 
 def is_nces_reachable(url: str, timeout: float = 10) -> bool:
-    """Plain stdlib HTTP GET (no browser/Selenium involved) to check a specific NCES
-    search endpoint is up before starting a scrape against it. Checking just the bare
-    nces.ed.gov domain isn't enough - the public and private search paths under it can
-    individually reset connections even while the root domain responds fine - so callers
-    should pass the actual per-type URL_TEMPLATE (formatted with PREFLIGHT_FIPS) they're
-    about to scrape. Lets a run fail fast with one clear message instead of silently
-    working through every state's full retry/backoff schedule when the endpoint itself
-    is unreachable (server-side outage, or a WAF resetting the connection) - a problem
-    no amount of per-state retrying can fix.
-    """
+    """Check if NCES endpoints for state searches are available or not before scraping"""
     try:
         urllib.request.urlopen(url, timeout=timeout)
         return True
@@ -288,7 +279,7 @@ def run_pipeline(
     output_dir: Path,
     retries: int = 2,
     headless: bool = True,
-    max_workers: int = 10,
+    max_workers: int = 5,
     **timeouts,
 ) -> PipelineResult:
     """Actual pipeline functionality for downloading, standardizing, and writing CSVs for state/type pairs.
