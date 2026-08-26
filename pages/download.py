@@ -40,7 +40,14 @@ run_clicked = st.button(
     "Run pipeline", type="primary", disabled=not selected_types or not states,
 )
 
+results_placeholder = st.empty()
+
 if run_clicked:
+    
+    # Clear previous results if present
+    results_placeholder.empty()
+    st.session_state["download_results"] = None
+
     with st.spinner("Checking nces.ed.gov is reachable..."):
         unreachable_types = [
             type_name for type_name in selected_types
@@ -96,16 +103,17 @@ if run_clicked:
         # right away rather than only after the next click.
         st.rerun()
 
-if "download_results" in st.session_state:
-    st.subheader("Results")
-    for type_name, result in st.session_state["download_results"].items():
-        st.write(
-            f"**{type_name}**: {len(result.dataframes)} succeeded, "
-            f"{len(result.skipped_states)} skipped, {len(result.failed_states)} failed"
-        )
-        if result.failed_states:
-            st.warning(f"Failed: {', '.join(result.failed_states)}")
+if "download_results" in st.session_state and st.session_state["download_results"] is not None:
+    with results_placeholder.container():
+        st.subheader("Results")
+        for type_name, result in st.session_state["download_results"].items():
+            st.write(
+                f"**{type_name}**: {len(result.dataframes)} succeeded, "
+                f"{len(result.skipped_states)} skipped, {len(result.failed_states)} failed"
+            )
+            if result.failed_states:
+                st.warning(f"Failed: {', '.join(result.failed_states)}")
 
-    st.success(
-        'Download successful! Navigate to "Results" to view the data.'
-    )
+        st.success(
+            'Download successful! Navigate to "Results" to view the data.'
+        )
