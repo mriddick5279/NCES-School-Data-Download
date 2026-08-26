@@ -4,6 +4,7 @@ Download page - pick school type(s) and states, then run the pipeline and show a
 Downloads to default output directory that cannot be changed by the user for consistency when downloading.
 """
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 
 import streamlit as st
 
@@ -62,11 +63,16 @@ if run_clicked:
                 f"Downloading {len(states)} state(s)/territory(ies) for "
                 f"{len(selected_types)} type(s) - this can take a while..."
             ):
-                for type_name in selected_types:
-                    results[type_name] = shared.run_pipeline(
-                        TYPE_CONFIGS[type_name], type_name, states, output_dir,
-                        retries=retries,
-                    )
+                with ThreadPoolExecutor(max_workers=len(selected_types)) as executor:
+                    futures = {
+                        type_name: executor.submit(
+                            shared.run_pipeline,
+                            TYPE_CONFIGS[type_name], type_name, states, output_dir,
+                            retries=retries,
+                        )
+                        for type_name in selected_types
+                    }
+                    results = {type_name: future.result() for type_name, future in futures.items()}
 
                 for type_name, result in results.items():
                     shared.report_result(type_name, result)
