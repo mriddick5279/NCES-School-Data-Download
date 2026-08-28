@@ -55,6 +55,7 @@ def clear_downloads():
         if st.button('Yes'):
             st.session_state['clear_downloads'] = True
             shared.remove_output()
+            st.session_state["download_results"] = None
         if st.button('No'):
             st.session_state['clear_downloads'] = False
     
