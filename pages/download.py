@@ -65,9 +65,7 @@ if run_clicked:
     if unreachable_types:
         st.error(
             f"nces.ed.gov isn't responding right now for: {', '.join(unreachable_types)}. "
-            "The run was skipped before downloading anything. This is on their end "
-            "(site outage or a connection reset) rather than a problem with the app - "
-            "wait a bit and try again."
+            "The run was skipped before downloading anything. Wait a bit and try again."
         )
     else:
         results: dict[str, shared.PipelineResult] = {}
