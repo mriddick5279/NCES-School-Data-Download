@@ -12,7 +12,7 @@ from nces_sd_download import config_private, config_public, shared
 
 TYPE_CONFIGS = {"public": config_public, "private": config_private}
 
-st.title("Download")
+st.title("NCES School Data Download")
 st.write("Select your download options down below to begin.")
 st.write("""Once your download is complete, you will be able to access
         and review them in the Results tab""")
