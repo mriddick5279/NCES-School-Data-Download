@@ -90,7 +90,7 @@ def transform(excel_tables, state):
     df.loc[change_status_to_open_mask, 'Status'] = 'Open'
 
     charter_mask = df['Charter'] == 'Yes'
-    df.loc[charter_mask, 'Charter'] = 'Public- Charter'
+    df.loc[charter_mask, 'Charter'] = 'Charter'
     df.loc[~charter_mask, 'Charter'] = 'Public'
 
     df['State'] = state
