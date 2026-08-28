@@ -19,6 +19,9 @@ st.title("Results")
 
 output_dir = shared.DEFAULT_OUTPUT_DIR
 
+if 'clear_downloads' not in st.session_state:
+    st.session_state['clear_downloads'] = None
+
 # app.py already keeps this page out of the nav until shared.has_downloaded_output()
 # is true, but it's still directly reachable by URL, so show this just in case
 if not shared.has_downloaded_output():
@@ -43,8 +46,28 @@ with st.container(width='content',height='content',horizontal=True,gap='small'):
 
     clear_button = st.button('Clear Downloads')
 
+@st.dialog('Confirm Clear Downloads')
+def clear_downloads():
+    st.session_state['clear_downloads'] = None
+    st.write('You are about to delete all previous downloads. Are you sure you would like to continue?')
+    
+    with st.container(horizontal=True,gap='small'):
+        if st.button('Yes'):
+            st.session_state['clear_downloads'] = True
+        if st.button('No'):
+            st.session_state['clear_downloads'] = False
+    
+    if st.session_state['clear_downloads'] is not None:
+        st.rerun()
+
 if clear_button:
-    st.success('Clear button clicked')
+    clear_downloads()
+
+if st.session_state['clear_downloads'] is not None:
+    should_switch = st.session_state['clear_downloads']
+    st.session_state['clear_downloads'] = None
+    if should_switch:
+        st.switch_page('pages/download.py')
 
 selected_state = st.sidebar.selectbox("State", options=sorted(state_files))
 
