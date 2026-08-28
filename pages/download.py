@@ -43,6 +43,9 @@ run_clicked = st.button(
     "Run pipeline", type="primary", disabled=not selected_types or not states,
 )
 
+st.write(f"""NOTE: The data provided comes from the National Center for Education Statistics.
+             This tool merely standardizes said data into a specific format for public use.""")
+
 results_placeholder = st.empty()
 
 if run_clicked:
