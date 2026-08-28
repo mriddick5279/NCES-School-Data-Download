@@ -27,9 +27,9 @@ DEFAULT_OUTPUT_DIR = Path.cwd() / ".output"
 def has_downloaded_output() -> bool:
     """
     Determine if school data files have actually been downloaded
-    
-    Used to determine whether 'Results' tab on Streamlit navigator should be shown or not.
-    Personal preference to have the tab 'hidden' if no results have been downloaded
+
+    Used by the Results page to show an empty state instead of trying to read
+    files that aren't there.
     """
     return DEFAULT_OUTPUT_DIR.is_dir() and any(DEFAULT_OUTPUT_DIR.glob("*_sd.csv"))
 

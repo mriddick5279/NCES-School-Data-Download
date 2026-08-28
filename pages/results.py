@@ -22,14 +22,18 @@ output_dir = shared.DEFAULT_OUTPUT_DIR
 if 'clear_downloads' not in st.session_state:
     st.session_state['clear_downloads'] = None
 
-# app.py already keeps this page out of the nav until shared.has_downloaded_output()
-# is true, but it's still directly reachable by URL, so show this just in case
+# Check if 'Clear Downloads' occurred and auto navigate back to Downloads page
+if st.session_state['clear_downloads'] is not None:
+    should_switch = st.session_state['clear_downloads']
+    st.session_state['clear_downloads'] = None
+    if should_switch:
+        st.switch_page('pages/download.py')
+
 if not shared.has_downloaded_output():
     st.info("No downloaded files yet. Run a download first.")
     st.stop()
 
 state_files = {path.stem.removesuffix("_sd"): path for path in sorted(output_dir.glob("*_sd.csv"))}
-
 
 def _zip_all(paths: list) -> bytes:
     buf = io.BytesIO()
@@ -64,12 +68,6 @@ def clear_downloads():
 
 if clear_button:
     clear_downloads()
-
-if st.session_state['clear_downloads'] is not None:
-    should_switch = st.session_state['clear_downloads']
-    st.session_state['clear_downloads'] = None
-    if should_switch:
-        st.switch_page('pages/download.py')
 
 selected_state = st.sidebar.selectbox("State", options=sorted(state_files))
 
