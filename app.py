@@ -15,7 +15,7 @@ st.set_page_config(page_title="NCES School Directory Downloader", layout="wide")
 
 # home = st.Page("pages/home.py", title="Home", icon="🏠", default=True)
 download = st.Page("pages/download.py", title="Download", icon="⬇️", default=True)
-results = st.Page("pages/results.py", title="Results", icon="📊")
+results = st.Page("pages/results.py", title="Results", icon=":material/table_chart:")
 
 pages = [download, results]
 
