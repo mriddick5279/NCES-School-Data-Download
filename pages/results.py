@@ -54,6 +54,7 @@ def clear_downloads():
     with st.container(horizontal=True,gap='small'):
         if st.button('Yes'):
             st.session_state['clear_downloads'] = True
+            shared.remove_output()
         if st.button('No'):
             st.session_state['clear_downloads'] = False
     

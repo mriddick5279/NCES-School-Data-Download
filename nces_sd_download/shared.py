@@ -3,7 +3,7 @@ combining used for both public and private NCES school directory downloads."""
 
 from __future__ import annotations
 
-import logging, os, tempfile, time
+import logging, os, tempfile, time, shutil
 import urllib.error, urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -32,6 +32,13 @@ def has_downloaded_output() -> bool:
     Personal preference to have the tab 'hidden' if no results have been downloaded
     """
     return DEFAULT_OUTPUT_DIR.is_dir() and any(DEFAULT_OUTPUT_DIR.glob("*_sd.csv"))
+
+def remove_output() -> None:
+    """
+    Delete output directory of files for when user choosed to 'Clear Downloads'
+    """
+
+    shutil.rmtree(DEFAULT_OUTPUT_DIR)
 
 # State/territory -> FIPS code. Identical between the public and private NCES search forms.
 STATE_FIPS = {
