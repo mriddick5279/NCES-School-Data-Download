@@ -374,6 +374,12 @@ def merge_type_results(results: dict[str, PipelineResult], output_dir: Path) -> 
 
         # Merge and write all dataframes for this state/territory into one CSV file
         combined = combine_dataframes(state_dataframes)
+
+        combined['Billing City'] = combined['Billing City'].str.title()
+        combined['County Name'] = combined['County Name'].str.title()
+
+        combined['Account Name'] = combined['Account Name'].str.replace(',','')
+
         combined.to_csv(output_dir / f"{state}_sd.csv", index=False)
 
         # Remove downloaded per-type source files for this state
