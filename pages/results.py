@@ -72,7 +72,7 @@ if clear_button:
 selected_state = st.sidebar.selectbox("State", options=sorted(state_files))
 
 selected_path = state_files[selected_state]
-df = pd.read_csv(selected_path)
+df = pd.read_csv(selected_path, dtype=str)
 last_modified = datetime.fromtimestamp(selected_path.stat().st_mtime)
 
 st.subheader(selected_state)
