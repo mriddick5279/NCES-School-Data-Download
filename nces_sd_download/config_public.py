@@ -93,9 +93,6 @@ def transform(excel_tables, state):
     df.loc[charter_mask, 'Charter'] = 'Charter'
     df.loc[~charter_mask, 'Charter'] = 'Public'
 
-    df.loc['City'] = df['City'].str.title()
-    df.loc['County Name'] = df['County Name'].str.title()
-
     df['State'] = state
     df.columns = FINAL_COLS
 
