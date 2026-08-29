@@ -17,9 +17,19 @@ st.write("Select your download options down below to begin.")
 st.write("""Once your download is complete, you will be able to access
         and review them in the Results tab""")
 
-selected_types = st.multiselect(
-    "School type(s)", options=list(TYPE_CONFIGS), default=list(TYPE_CONFIGS),
-)
+# selected_types = st.multiselect(
+#     "School type(s)", options=list(TYPE_CONFIGS), default=list(TYPE_CONFIGS),
+# )
+
+with st.container(horizontal=True,gap='small'):
+    st.checkbox('Public', key='public')
+    st.checkbox('Private', key='private')
+
+selected_types = []
+if st.session_state.public:
+    selected_types.append('public')
+if st.session_state.private:
+    selected_types.append('private')
 
 state_scope = st.radio(
     "States", options=["All", "States only", "Territories only", "Custom"], horizontal=True,
@@ -49,7 +59,7 @@ st.write(f"""NOTE: The data provided comes from the National Center for Educatio
 results_placeholder = st.empty()
 
 if run_clicked:
-    
+    print(selected_types)
     # Clear previous results if present
     results_placeholder.empty()
     st.session_state["download_results"] = None
