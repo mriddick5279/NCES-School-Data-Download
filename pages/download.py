@@ -81,8 +81,7 @@ if run_clicked:
         results: dict[str, shared.PipelineResult] = {}
         try:
             with st.spinner(
-                f"Downloading {len(states)} state(s)/territory(ies) for "
-                f"{len(selected_types)} type(s) - this can take a while..."
+                f"Download in process. DO NOT switch tabs until complete."
             ):
                 with ThreadPoolExecutor(max_workers=len(selected_types)) as executor:
                     futures = {
