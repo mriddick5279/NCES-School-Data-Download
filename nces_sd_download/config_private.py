@@ -71,6 +71,9 @@ def transform(excel_tables, state):
         + '-' + df.loc[phone_valid_mask, 'PSS_PHONE'].str.slice(6)
     )
 
+    df.loc['PSS_CITY'] = df['PSS_CITY'].str.title()
+    df.loc['PSS_COUNTY_NAME'] = df['PSS_COUNTY_NAME'].str.title()
+
     df['PSS_STABB'] = state
 
     religious_mask = df['PSS_RELIG'].isin(['1', '2'])
