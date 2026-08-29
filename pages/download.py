@@ -15,12 +15,14 @@ TYPE_CONFIGS = {"public": config_public, "private": config_private}
 st.title("NCES School Data Download")
 st.write("Select your download options down below to begin.")
 st.write("""Once your download is complete, you will be able to access
-        and review them in the Results tab""")
+        and review them in the Results tab.""")
+st.write('Only 5 downloads are currently allowed at a time.')
 
 # selected_types = st.multiselect(
 #     "School type(s)", options=list(TYPE_CONFIGS), default=list(TYPE_CONFIGS),
 # )
 
+st.write('Select School Type(s):')
 with st.container(horizontal=True,gap='small'):
     st.checkbox('Public', key='public')
     st.checkbox('Private', key='private')
@@ -31,19 +33,23 @@ if st.session_state.public:
 if st.session_state.private:
     selected_types.append('private')
 
-state_scope = st.radio(
-    "States", options=["All", "States only", "Territories only", "Custom"], horizontal=True,
-)
+# state_scope = st.radio(
+#     "States", options=["All", "States only", "Territories only", "Custom"], horizontal=True,
+# )
 
-if state_scope == "All":
-    states = shared.STATE_FIPS
-elif state_scope == "States only":
-    states = {name: fips for name, fips in shared.STATE_FIPS.items() if name not in shared.TERRITORIES}
-elif state_scope == "Territories only":
-    states = {name: fips for name, fips in shared.STATE_FIPS.items() if name in shared.TERRITORIES}
-else:
-    chosen = st.multiselect("Pick specific states/territories", options=sorted(shared.STATE_FIPS))
-    states = {name: shared.STATE_FIPS[name] for name in chosen}
+# if state_scope == "All":
+#     states = shared.STATE_FIPS
+# elif state_scope == "States only":
+#     states = {name: fips for name, fips in shared.STATE_FIPS.items() if name not in shared.TERRITORIES}
+# elif state_scope == "Territories only":
+#     states = {name: fips for name, fips in shared.STATE_FIPS.items() if name in shared.TERRITORIES}
+# else:
+st.write('Select State(s)')
+
+chosen = st.multiselect(
+    'Options', options=sorted(shared.STATE_FIPS), max_selections=5, label_visibility='collapsed'
+)
+states = {name: shared.STATE_FIPS[name] for name in chosen}
 
 output_dir = shared.DEFAULT_OUTPUT_DIR
 
