@@ -110,6 +110,7 @@ if "download_results" in st.session_state and st.session_state["download_results
             if result.failed_states:
                 st.warning(f"Failed: {', '.join(result.failed_states)}")
 
-        st.success(
-            'Download successful! Navigate to "Results" to view the data.'
-        )
+        if result.failed_states is None:
+            st.success(
+                'Download successful! Navigate to "Results" to view the data.'
+            )
