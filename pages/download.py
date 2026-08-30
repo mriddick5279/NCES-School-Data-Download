@@ -18,10 +18,6 @@ st.write("""Once your download is complete, you will be able to access
         and review them in the Results tab.""")
 st.write('Only 5 downloads are currently allowed at a time.')
 
-# selected_types = st.multiselect(
-#     "School type(s)", options=list(TYPE_CONFIGS), default=list(TYPE_CONFIGS),
-# )
-
 st.write('Select School Type(s):')
 with st.container(horizontal=True,gap='small'):
     st.checkbox('Public', key='public')
@@ -33,17 +29,6 @@ if st.session_state.public:
 if st.session_state.private:
     selected_types.append('private')
 
-# state_scope = st.radio(
-#     "States", options=["All", "States only", "Territories only", "Custom"], horizontal=True,
-# )
-
-# if state_scope == "All":
-#     states = shared.STATE_FIPS
-# elif state_scope == "States only":
-#     states = {name: fips for name, fips in shared.STATE_FIPS.items() if name not in shared.TERRITORIES}
-# elif state_scope == "Territories only":
-#     states = {name: fips for name, fips in shared.STATE_FIPS.items() if name in shared.TERRITORIES}
-# else:
 st.write('Select State(s)')
 
 chosen = st.multiselect(
@@ -65,7 +50,7 @@ st.write(f"""NOTE: The data provided comes from the National Center for Educatio
 results_placeholder = st.empty()
 
 if run_clicked:
-    print(selected_types)
+
     # Clear previous results if present
     results_placeholder.empty()
     st.session_state["download_results"] = None
@@ -105,9 +90,6 @@ if run_clicked:
 
                 succeeded_states = shared.merge_type_results(results, output_dir)
         finally:
-            # Deferred until download AND merge are both done - see run_pipeline's
-            # docstring for why (cleaning up right after each type's own states finish
-            # was racing a transient Windows file lock).
             for result in results.values():
                 shutil.rmtree(result.downloads_root, ignore_errors=True)
 
@@ -115,11 +97,6 @@ if run_clicked:
         st.session_state["download_succeeded_states"] = succeeded_states
         st.session_state["download_output_dir"] = output_dir
 
-        # Without this, app.py's nav (built before this page runs, on the same rerun
-        # that handled the button click) wouldn't pick up shared.has_downloaded_output()
-        # flipping to true until some later, unrelated interaction. Forcing a fresh
-        # rerun now re-evaluates it immediately, so Results shows up in the sidebar
-        # right away rather than only after the next click.
         st.rerun()
 
 if "download_results" in st.session_state and st.session_state["download_results"] is not None:
