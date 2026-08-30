@@ -12,6 +12,7 @@ from pathlib import Path
 import pandas as pd
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -146,6 +147,11 @@ def is_nces_reachable(url: str, timeout: float = 10) -> bool:
         return False
 
 
+# Streamlit Community Cloud installs Chromium via packages.txt at these paths.
+# When absent (local dev), fall back to Selenium Manager's own resolution instead.
+CLOUD_CHROMIUM_BINARY = Path("/usr/bin/chromium")
+CLOUD_CHROMEDRIVER_BINARY = Path("/usr/bin/chromedriver")
+
 def build_chrome_options(download_dir: Path, headless: bool = True) -> webdriver.ChromeOptions:
     """Configure Chrome to auto-download into download_dir"""
 
@@ -154,7 +160,24 @@ def build_chrome_options(download_dir: Path, headless: bool = True) -> webdriver
     chrome_options.add_experimental_option("prefs", prefs)
     if headless:
         chrome_options.add_argument("--headless=new")
+
+    if CLOUD_CHROMIUM_BINARY.exists():
+        chrome_options.binary_location = str(CLOUD_CHROMIUM_BINARY)
+        # Chrome refuses to run as root without --no-sandbox, and Streamlit Cloud's
+        # container has too small a /dev/shm without --disable-dev-shm-usage.
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+
     return chrome_options
+
+
+def build_chrome_service() -> Service | None:
+    """Point Selenium at the apt-installed chromedriver on Streamlit Community Cloud.
+    Returns None locally so Selenium Manager resolves one as usual."""
+
+    if CLOUD_CHROMEDRIVER_BINARY.exists():
+        return Service(executable_path=str(CLOUD_CHROMEDRIVER_BINARY))
+    return None
 
 
 def download_state_excel(
@@ -244,7 +267,10 @@ def process_state(
             driver = None # Instantiate driver instance
             try:
                 # Create the driver and download excel file to temporary download directory
-                driver = webdriver.Chrome(options=build_chrome_options(download_dir, headless))
+                driver = webdriver.Chrome(
+                    options=build_chrome_options(download_dir, headless),
+                    service=build_chrome_service(),
+                )
                 excel_path = download_state_excel(driver, url, download_dir, **timeouts)
 
                 if excel_path is None: # No data found for state/type pair (not a failure, just nothing to download)
