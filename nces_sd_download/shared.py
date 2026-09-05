@@ -90,6 +90,7 @@ STATE_FIPS = {
     'West Virginia': '54',
     'Wisconsin': '55',
     'Wyoming': '56',
+    'Bureau of Indian Education': '59',
     'American Samoa': '60',
     'Guam': '66',
     'Northern Mariana Islands': '69',
